@@ -99,6 +99,14 @@ azul 4 "Ambiente proprio do V9 Flow e bibliotecas"
 AppPy="$DESTINO/venv/bin/python"
 ( cd "$DESTINO" && "$AppPy" abrir.pyw --preparar ) || parar "Nao consegui instalar as bibliotecas. Confira a internet e rode de novo."
 ok "bibliotecas prontas."
+# o Claude Code (agente de cenas e Estudio): no Windows vem com o V9 Vision; no Mac, aqui (instalador oficial, sem senha)
+if [ -x "$HOME/.local/bin/claude" ] || command -v claude >/dev/null 2>&1; then
+  ok "Claude Code ja instalado."
+elif curl -fsSL https://claude.ai/install.sh | bash >/dev/null 2>&1 && [ -x "$HOME/.local/bin/claude" ]; then
+  ok "Claude Code instalado (no app, clique em \"Entrar com o Claude\")."
+else
+  aviso "Nao consegui instalar o Claude Code: no app, o botao \"Entrar com o Claude\" tenta de novo."
+fi
 mkdir -p "$DADOS"
 # a chave do membro fica guardada no Chaveiro do Mac: e' com ela que o programa se atualiza sozinho
 if printf '%s\n' "$CHAVE" | ( cd "$DESTINO" && "$AppPy" -c 'import sys; from v9flow import plataforma; open(sys.argv[1], "wb").write(plataforma.proteger(sys.stdin.readline().strip().encode("ascii")))' "$DADOS/chave.dpapi" ); then
