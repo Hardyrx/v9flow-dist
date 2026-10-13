@@ -1,8 +1,8 @@
 {
- "versao": "0.7",
+ "versao": "0.7.1",
  "arquivo": "app.v9pkg",
- "sha256": "ecda8dc92269b45d0499838e6b0b87f7611b98167e3cae4610c1266f1bed2760",
- "tamanho": 218576,
- "publicado_em": "2026-10-13 16:59:28",
+ "sha256": "4dca3fc5bf11a05c7da1f31fd3c62f0c7218cded8606f108596948fc2418137f",
+ "tamanho": 218732,
+ "publicado_em": "2026-10-13 17:48:24",
  "chave_id": "c3435b477b86"
 }
