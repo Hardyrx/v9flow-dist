@@ -99,6 +99,14 @@ azul 4 "Ambiente proprio do V9 Flow e bibliotecas"
 AppPy="$DESTINO/venv/bin/python"
 ( cd "$DESTINO" && "$AppPy" abrir.pyw --preparar ) || parar "Nao consegui instalar as bibliotecas. Confira a internet e rode de novo."
 ok "bibliotecas prontas."
+# o Claude Code (agente de cenas e Estudio): no Windows vem com o V9 Vision; no Mac, aqui (instalador oficial, sem senha)
+if [ -x "$HOME/.local/bin/claude" ] || command -v claude >/dev/null 2>&1; then
+  ok "Claude Code ja instalado."
+elif curl -fsSL https://claude.ai/install.sh | bash >/dev/null 2>&1 && [ -x "$HOME/.local/bin/claude" ]; then
+  ok "Claude Code instalado (no app, clique em \"Entrar com o Claude\")."
+else
+  aviso "Nao consegui instalar o Claude Code: no app, o botao \"Entrar com o Claude\" tenta de novo."
+fi
 mkdir -p "$DADOS"
 # a chave do membro fica guardada no Chaveiro do Mac: e' com ela que o programa se atualiza sozinho
 if printf '%s\n' "$CHAVE" | ( cd "$DESTINO" && "$AppPy" -c 'import sys; from v9flow import plataforma; open(sys.argv[1], "wb").write(plataforma.proteger(sys.stdin.readline().strip().encode("ascii")))' "$DADOS/chave.dpapi" ); then
@@ -107,42 +115,30 @@ else
   aviso "Nao consegui guardar o acesso: o programa funciona, mas para atualizar rode este comando de novo."
 fi
 CHAVE=""
-if ( cd "$DESTINO" && printf '%s\n%s\n' "$LOGIN" "$SENHA_LIC" | "$AppPy" -m v9flow.licenca ativar >/dev/null 2>&1 ); then
+RLIC="$( cd "$DESTINO" && printf '%s\n%s\n' "$LOGIN" "$SENHA_LIC" | "$AppPy" -m v9flow.licenca ativar 2>&1 )"
+if [ $? -eq 0 ]; then
   ok "licenca ativada neste Mac."
 else
-  aviso "A licenca nao foi ativada agora: ao abrir o V9 Flow, entre com login e senha na tela de entrada."
+  # mostra o motivo que o servidor deu (ex.: limite de computadores): antes o instalador escondia
+  aviso "A licenca nao foi ativada agora ($(printf '%s' "$RLIC" | tail -1)). Ao abrir o V9 Flow, entre com login e senha na tela de entrada."
 fi
 SENHA_LIC=""
 
 # ---------- 5) app no Launchpad / Aplicativos ----------
 azul 5 "Criando o app \"$NOME\""
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cat > "$APP/Contents/MacOS/V9Flow" <<EOF
-#!/bin/bash
-cd "$DESTINO" && exec "$DESTINO/venv/bin/python" abrir.pyw "\$@"
-EOF
-chmod +x "$APP/Contents/MacOS/V9Flow"
+# o app e' compilado pelo proprio Mac (osacompile): um .app feito a mao com script dentro deu
+# "_LSOpenURLsWithCompletionHandler() failed with error -10669" no M4 (13/10)
+mkdir -p "$HOME/Applications"
+rm -rf "$APP"
+osacompile -o "$APP" -e "do shell script \"cd '$DESTINO' && nohup '$DESTINO/venv/bin/python' abrir.pyw > '$DADOS/abrir.log' 2>&1 &\"" \
+  || parar "Nao consegui criar o app no Mac (osacompile)."
 if [ -f "$DESTINO/v9flow/ui/icone-512.png" ]; then
   ICONSET="$TMP/V9Flow.iconset"; mkdir -p "$ICONSET"
   for s in 16 32 128 256 512; do
     sips -z $s $s "$DESTINO/v9flow/ui/icone-512.png" --out "$ICONSET/icon_${s}x${s}.png" >/dev/null 2>&1
   done
-  iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/V9Flow.icns" >/dev/null 2>&1 || true
+  iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/applet.icns" >/dev/null 2>&1 || true
 fi
-cat > "$APP/Contents/Info.plist" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-  <key>CFBundleName</key><string>$NOME</string>
-  <key>CFBundleDisplayName</key><string>$NOME</string>
-  <key>CFBundleIdentifier</key><string>com.algoritmosecreto.v9flow</string>
-  <key>CFBundleExecutable</key><string>V9Flow</string>
-  <key>CFBundleIconFile</key><string>V9Flow</string>
-  <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>$VERSAO</string>
-  <key>LSMinimumSystemVersion</key><string>12.0</string>
-</dict></plist>
-EOF
 touch "$APP"
 ok "\"$NOME\" em Aplicativos do usuario (~/Applications) -- aparece no Launchpad e no Spotlight."
 
