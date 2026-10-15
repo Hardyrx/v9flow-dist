@@ -156,6 +156,17 @@ def _le_etiqueta(chave_b64: str, ident: str, e: dict):
         return None
 
 
+# PROIBIDOS NO V9 FLOW (15/10, dono: "o Joshua nunca deverá ter acesso ao Flow, é proibido"). Vale mesmo com "todos":
+# nunca entram na lista do Flow, então não instalam nem abrem o pacote. Pelo nome (etiqueta) ou pelo id do login.
+PROIBIDOS_NOMES = ("joshua",)
+PROIBIDOS_IDS = {hashlib.sha256(n.encode()).hexdigest() for n in PROIBIDOS_NOMES}
+
+
+def proibido(ident: str, nome: str) -> bool:
+    n = (nome or "").casefold()
+    return ident in PROIBIDOS_IDS or any(p in n for p in PROIBIDOS_NOMES)
+
+
 def lista_compradores(oracle: dict, flow, chave_oracle_b64: str) -> list:
     """[(ident, nome, ja_tem_o_flow)] de todos os membros do Oracle, em ordem de nome."""
     no_flow = set(((flow or {}).get("membros") or {}).keys())
@@ -319,7 +330,8 @@ def cmd_compradores(a):
 
     if a.escolha is None:
         for n, (ident, nome, ja) in enumerate(itens, 1):
-            print(f"{n:>3}. [{'x' if ja else ' '}] {nome}{'  (voce)' if ident == eu else ''}")
+            print(f"{n:>3}. [{'x' if ja else ' '}] {nome}{'  (voce)' if ident == eu else ''}"
+                  f"{'  (PROIBIDO no Flow)' if ident != eu and proibido(ident, nome) else ''}")
         return 0
 
     if a.escolha.strip().lower() == "todos":        # todo membro do Oracle (o padrao continua: so' quem comprou)
@@ -341,11 +353,19 @@ def cmd_compradores(a):
             return 3
         idents = {itens[n - 1][0] for n in nums}
     idents.add(eu)                  # o administrador fica sempre: e' o login dele que abre a chave para publicar
+    nomes = {i: n for i, n, _ in itens}
+    barrados = {i for i in idents if i != eu and proibido(i, nomes.get(i, ""))}
+    if barrados:
+        idents -= barrados
+        print(f"PROIBIDO no V9 Flow (fica fora da lista): {', '.join(sorted(nomes.get(i, i) for i in barrados))}")
+    ja_tinha = {i for i, n, ja in itens if ja and proibido(i, n)}
+    if ja_tinha and not a.trocar_chave:
+        print("ATENCAO: alguem PROIBIDO estava na lista antiga do Flow. Rode de novo trocando a chave para cortar a copia "
+              "que ele ja instalou.")
 
     trocou = k_flow is not None and a.trocar_chave
     if k_flow is None or a.trocar_chave:
         k_flow = base64.b64encode(os.urandom(32)).decode()
-    nomes = {i: n for i, n, _ in itens}
     lista = monta_lista_flow(oracle, {i: nomes[i] for i in idents}, k_flow)
     os.makedirs(os.path.dirname(os.path.abspath(a.flow)), exist_ok=True)
     with open(a.flow, "w", encoding="utf-8") as f:
