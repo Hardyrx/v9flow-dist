@@ -55,6 +55,8 @@ FORA_PASTAS_TODAS = {"__pycache__", ".git", "node_modules", ".pytest_cache", ".c
 # Pastas da raiz: ambiente local, ferramentas de teste, Remotion (so' as ferramentas usam), o proprio instalador.
 FORA_PASTAS_RAIZ = {"venv", "remotion", "ferramentas", "testes", "instalador", "logs", "dist",
                     "docs", "icaro_ensinar", "harness"}   # 15/10: prints, sons de teste e o diario do ICARO sao so' do DEV
+# 16/10: o ICARO do aluno NAO herda nada do mestre: v9flow/heranca/ nunca vai no pacote (caminho relativo a' raiz).
+FORA_CAMINHOS = {"v9flow/heranca"}
 # Arquivos (em qualquer nivel, por padrao de nome): dados locais e lixo.
 FORA_ARQUIVOS = ["config.json", "*.pyc", "*.log", "*.tmp", "*.lock", "porta_ativa.txt", "fila.json", "Thumbs.db",
                  "desktop.ini"]
@@ -74,7 +76,8 @@ def arquivos_do_pacote(app):
         rel = os.path.relpath(raiz, app)
         na_raiz = rel == "."
         pastas[:] = sorted(p for p in pastas
-                           if p not in FORA_PASTAS_TODAS and not (na_raiz and p in FORA_PASTAS_RAIZ))
+                           if p not in FORA_PASTAS_TODAS and not (na_raiz and p in FORA_PASTAS_RAIZ)
+                           and os.path.normpath(os.path.join(rel, p)).replace(os.sep, "/") not in FORA_CAMINHOS)
         for nome in sorted(arqs):
             if any(fnmatch.fnmatch(nome, pad) for pad in FORA_ARQUIVOS):
                 continue
