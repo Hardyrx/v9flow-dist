@@ -163,6 +163,15 @@ else
   rm -f "$PLIST"; ok "sem inicio automatico."
 fi
 
+# ---------- opcional: motor Harness (DeepSeek) dos subagentes do ICARO ----------
+# Desligado por padrao (Enter = N): sao ~453 MB e precisa do Node.js. Nunca vai no pacote do programa.
+R="$(pergunta '      (Opcional) Instalar o motor Harness do ICARO? ~453 MB, precisa do Node.js. (S/N, Enter = N): ')"
+if [ "$R" = "s" ] || [ "$R" = "S" ]; then
+  if ! (cd "$DESTINO" && "$DESTINO/venv/bin/python" -m v9flow.dsh_motor instalar); then
+    aviso "O motor Harness nao foi instalado (sem Node.js: brew install node, ou https://nodejs.org). Nao afeta o programa; da para instalar depois em Configuracoes."
+  fi
+fi
+
 # ---------- 7) resumo ----------
 azul 7 "Resumo"
 printf 'Termo de uso aceito\nlogin: %s\ndata: %s\ncomputador: %s\nversao do app: %s\n' "$LOGIN" "$(date '+%Y-%m-%d %H:%M:%S')" "$(scutil --get ComputerName 2>/dev/null)" "$VERSAO" > "$DESTINO/termo_aceito.txt"

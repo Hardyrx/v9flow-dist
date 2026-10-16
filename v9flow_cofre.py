@@ -51,9 +51,10 @@ ARQUIVO_PACOTE = "app.v9pkg"
 # ---------------------------------------------------------------- o que NAO vai para o membro
 # Pastas (em qualquer nivel): lixo de Python/git/node.
 FORA_PASTAS_TODAS = {"__pycache__", ".git", "node_modules", ".pytest_cache", ".cache"}
+# 15/10: "harness" (motor DeepSeek/dsh, ~453 MB) NUNCA vai no pacote: instala-se sob demanda na pasta de dados da pessoa.
 # Pastas da raiz: ambiente local, ferramentas de teste, Remotion (so' as ferramentas usam), o proprio instalador.
 FORA_PASTAS_RAIZ = {"venv", "remotion", "ferramentas", "testes", "instalador", "logs", "dist",
-                    "docs", "icaro_ensinar"}   # 15/10: prints, sons de teste e o diario do ICARO sao so' do DEV
+                    "docs", "icaro_ensinar", "harness"}   # 15/10: prints, sons de teste e o diario do ICARO sao so' do DEV
 # Arquivos (em qualquer nivel, por padrao de nome): dados locais e lixo.
 FORA_ARQUIVOS = ["config.json", "*.pyc", "*.log", "*.tmp", "*.lock", "porta_ativa.txt", "fila.json", "Thumbs.db",
                  "desktop.ini"]
