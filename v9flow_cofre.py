@@ -50,7 +50,8 @@ ARQUIVO_PACOTE = "app.v9pkg"
 
 # ---------------------------------------------------------------- o que NAO vai para o membro
 # Pastas (em qualquer nivel): lixo de Python/git/node.
-FORA_PASTAS_TODAS = {"__pycache__", ".git", "node_modules", ".pytest_cache", ".cache"}
+FORA_PASTAS_TODAS = {"__pycache__", ".git", "node_modules", ".pytest_cache", ".cache",
+                     ".atualizacao"}   # 17/10: trava/diario da atualizacao local (atualizando.info) nunca vai pro membro
 # 15/10: "harness" (motor DeepSeek/dsh, ~453 MB) NUNCA vai no pacote: instala-se sob demanda na pasta de dados da pessoa.
 # Pastas da raiz: ambiente local, ferramentas de teste, Remotion (so' as ferramentas usam), o proprio instalador.
 FORA_PASTAS_RAIZ = {"venv", "remotion", "ferramentas", "testes", "instalador", "logs", "dist",
@@ -513,18 +514,21 @@ def consulta_codigo(app: str, url: str, timeout: int = 20) -> dict:
     base = {"codigo": codigo_maquina(), "login_senha": True}
     corpo = json.dumps({"acao": "codigo", "maquina": maquina_id(), "app": app, "nome_pc": socket.gethostname()}).encode()
     req = urllib.request.Request(url, data=corpo, headers={"content-type": "application/json"}, method="POST")
+    erro_http = None
     try:
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 texto = r.read().decode("utf-8", "replace")
         except urllib.error.HTTPError as e:                  # o servidor responde 403 com JSON para "aguardando" etc.
+            erro_http = e.code
             texto = e.read().decode("utf-8", "replace")
     except (urllib.error.URLError, OSError, ValueError):
         return {**base, "estado": "sem_rede"}
     try:
         j = json.loads(texto)
     except ValueError:
-        return {**base, "estado": "funcao_antiga"}
+        # 16/10: erro HTTP sem JSON (proxy/antivirus/servidor fora) e' rede, nao a funcao antiga
+        return {**base, "estado": "sem_rede" if erro_http else "funcao_antiga"}
     if not isinstance(j, dict):
         return {**base, "estado": "funcao_antiga"}
     base["login_senha"] = j.get("login_senha", True) is not False
