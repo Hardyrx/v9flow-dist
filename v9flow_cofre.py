@@ -55,7 +55,7 @@ FORA_PASTAS_TODAS = {"__pycache__", ".git", "node_modules", ".pytest_cache", ".c
 # 15/10: "harness" (motor DeepSeek/dsh, ~453 MB) NUNCA vai no pacote: instala-se sob demanda na pasta de dados da pessoa.
 # Pastas da raiz: ambiente local, ferramentas de teste, Remotion (so' as ferramentas usam), o proprio instalador.
 FORA_PASTAS_RAIZ = {"venv", "remotion", "ferramentas", "testes", "instalador", "logs", "dist",
-                    "docs", "icaro_ensinar", "harness"}   # 15/10: prints, sons de teste e o diario do ICARO sao so' do DEV
+                    "docs", "icaro_ensinar", "harness", ".github"}   # 18/10: os botoes de publicar pela nuvem sao so' do dono   # 15/10: prints, sons de teste e o diario do ICARO sao so' do DEV
 # 16/10: o ICARO do aluno NAO herda nada do mestre: v9flow/heranca/ nunca vai no pacote (caminho relativo a' raiz).
 FORA_CAMINHOS = {"v9flow/heranca"}
 # Arquivos (em qualquer nivel, por padrao de nome): dados locais e lixo.
