@@ -182,7 +182,10 @@ mkdir -p "$HOME/Applications"
 rm -rf "$APP"
 osacompile -o "$APP" -e "do shell script \"cd '$DESTINO' && nohup '$DESTINO/venv/bin/python' abrir.pyw > '$DADOS/abrir.log' 2>&1 &\"" \
   || parar "Nao consegui criar o app no Mac (osacompile)."
-if [ -f "$DESTINO/v9flow/ui/icone-512.png" ]; then
+if [ -f "$DESTINO/v9flow/ui/icone-mac.icns" ]; then   # 19/10: ícone colorido (fundo verde), pronto
+  cp "$DESTINO/v9flow/ui/icone-mac.icns" "$APP/Contents/Resources/applet.icns"
+  icone_no_app "$APP"
+elif [ -f "$DESTINO/v9flow/ui/icone-512.png" ]; then
   ICONSET="$TMP/V9Flow.iconset"; mkdir -p "$ICONSET"
   for s in 16 32 128 256 512; do
     sips -z $s $s "$DESTINO/v9flow/ui/icone-512.png" --out "$ICONSET/icon_${s}x${s}.png" >/dev/null 2>&1
