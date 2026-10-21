@@ -16,6 +16,9 @@ APP="$HOME/Applications/V9 Flow.app"
 NOME="V9 Flow"
 TMP="$(mktemp -d -t v9flowinst)"
 AVISOS=()
+# ENCADEADO (21/10): o instalador do V9 Vision (Mac) roda este aqui mesmo, como o .bat do Windows (V9F_ENCADEADO + V9F_E_*):
+# termo, login e senha vem de la' e nao pergunta de novo. Codigo de saida 3 = este Mac ainda nao foi liberado para o Flow.
+ENCAD="${V9F_ENCADEADO:-}"
 
 azul()  { printf '\n\033[36m[%s/7] %s\033[0m\n' "$1" "$2"; }
 ok()    { printf '      \033[32mOK -- %s\033[0m\n' "$1"; }
@@ -53,14 +56,18 @@ echo "      - O acesso e' pessoal: um login por pessoa, sem emprestar nem dividi
 echo "      - E' proibido copiar, repassar ou vender o programa ou o codigo."
 echo "      - O administrador pode remover o acesso em caso de uso indevido."
 echo ""
-ACEITE="$(pergunta '      Para aceitar, digite ACEITO e aperte Enter: ')"
+if [ -n "$ENCAD" ] && [ "${V9F_E_termo:-}" = "ACEITO" ]; then ACEITE="ACEITO"
+else ACEITE="$(pergunta '      Para aceitar, digite ACEITO e aperte Enter: ')"; fi
 [ "$(echo "$ACEITE" | tr '[:lower:]' '[:upper:]' | xargs)" = "ACEITO" ] || parar "O termo de uso nao foi aceito; instalacao cancelada."
 CHAVE=""; LOGIN=""; SENHA_LIC=""; MODO="login"
 # ---- ACESSO POR CODIGO (16/10): sem login nem senha. Mostra o codigo DESTE Mac (o mesmo do app), o suporte libera no
 # painel e o servidor entrega a chave que abre o pacote. Login e senha continuam como alternativa (tecla L).
 campo() { printf '%s' "$J" | "$VPY" -c 'import json,sys;print(json.load(sys.stdin).get(sys.argv[1]) or "")' "$1" 2>/dev/null; }
 AVISOU=0; ESPERAS=0
-while [ "${V9_SO_LOGIN:-}" != "1" ]; do
+# encadeado com login/senha do Vision: nao usa o codigo (igual ao .bat: so' tenta o codigo se nao encadeado ou modo=codigo)
+SO_LOGIN="${V9_SO_LOGIN:-}"
+if [ -n "$ENCAD" ] && [ "${V9F_E_modo:-}" != "codigo" ]; then SO_LOGIN=1; fi
+while [ "$SO_LOGIN" != "1" ]; do
   J="$("$VPY" "$TMP/v9flow_cofre.py" codigo --app flow 2>/dev/null | tail -1)"
   ESTADO="$(campo estado)"; [ -n "$ESTADO" ] || ESTADO="funcao_antiga"
   CODIGO="$(campo codigo)"; LS="$(campo login_senha)"
@@ -69,7 +76,10 @@ while [ "${V9_SO_LOGIN:-}" != "1" ]; do
     negado) parar "Este Mac (codigo $CODIGO) nao tem acesso ao V9 Flow. Fale com o administrador." ;;
     sem_chave) parar "Este Mac (codigo $CODIGO) esta liberado, mas sem direito a instalar. Fale com o administrador." ;;
     sem_rede) echo "      Nao consegui falar com o servidor de licencas. Confira a internet."; break ;;
-    aguardando) ;;
+    aguardando) if [ -n "$ENCAD" ]; then
+        echo "      O V9 Flow ainda nao foi liberado para este Mac (codigo $CODIGO). Quando for, e so' rodar o instalador de novo."
+        rm -rf "$TMP"; exit 3
+      fi ;;
     *) break ;;
   esac
   if [ "$AVISOU" = 0 ]; then
@@ -92,13 +102,17 @@ fi
 for t in 1 2 3; do
   [ "$MODO" = "login" ] || break
   [ "$t" -gt 1 ] && echo "      Login ou senha incorretos. Tente de novo."
-  LOGIN="$(pergunta '      Login (o que o administrador cadastrou para voce): ')"
-  SENHA="$(segredo '      Senha: ')"
+  if [ -n "$ENCAD" ] && [ "$t" = 1 ] && [ -n "${V9F_E_login:-}" ] && [ -n "${V9F_E_senha:-}" ]; then
+    LOGIN="$V9F_E_login"; SENHA="$V9F_E_senha"            # vindos do Vision: so' a 1a vez (se errou, pergunta)
+  else
+    LOGIN="$(pergunta '      Login (o que o administrador cadastrou para voce): ')"
+    SENHA="$(segredo '      Senha: ')"
+  fi
   [ -n "$LOGIN" ] && [ -n "$SENHA" ] || continue
   CHAVE="$(printf '%s\n%s\n' "$LOGIN" "$SENHA" | "$VPY" "$TMP/v9flow_cofre.py" abrir --membros "$TMP/membros.json" 2>/dev/null | head -1 | tr -d '[:space:]')"
   if [ -n "$CHAVE" ]; then SENHA_LIC="$SENHA"; break; fi
 done
-SENHA=""
+SENHA=""; unset V9F_E_senha
 [ -n "$CHAVE" ] || parar "Login ou senha incorretos 3 vezes. Fale com o administrador."
 [ "$MODO" = "login" ] && ok "acesso liberado para $LOGIN."
 
@@ -199,7 +213,8 @@ ok "\"$NOME\" em Aplicativos do usuario (~/Applications) -- aparece no Launchpad
 # ---------- 6) iniciar com o Mac ----------
 azul 6 "Iniciar com o Mac"
 PLIST="$HOME/Library/LaunchAgents/com.algoritmosecreto.v9flow.plist"
-R="$(pergunta '      Abrir o V9 Flow sozinho (em segundo plano) quando ligar o Mac? (S/N, Enter = N): ')"
+if [ -n "${V9F_E_iniciar:-}" ]; then R="$V9F_E_iniciar"
+else R="$(pergunta '      Abrir o V9 Flow sozinho (em segundo plano) quando ligar o Mac? (S/N, Enter = N): ')"; fi
 if [ "$R" = "s" ] || [ "$R" = "S" ]; then
   mkdir -p "$HOME/Library/LaunchAgents"
   cat > "$PLIST" <<EOF
@@ -219,7 +234,7 @@ fi
 
 # ---------- opcional: motor Harness (DeepSeek) dos subagentes do ICARO ----------
 # Desligado por padrao (Enter = N): sao ~453 MB e precisa do Node.js. Nunca vai no pacote do programa.
-R="$(pergunta '      (Opcional) Instalar o motor Harness do ICARO? ~453 MB, precisa do Node.js. (S/N, Enter = N): ')"
+R="N"; [ -n "$ENCAD" ] || R="$(pergunta '      (Opcional) Instalar o motor Harness do ICARO? ~453 MB, precisa do Node.js. (S/N, Enter = N): ')"
 if [ "$R" = "s" ] || [ "$R" = "S" ]; then
   if ! (cd "$DESTINO" && "$DESTINO/venv/bin/python" -m v9flow.dsh_motor instalar); then
     aviso "O motor Harness nao foi instalado (sem Node.js: brew install node, ou https://nodejs.org). Nao afeta o programa; da para instalar depois em Configuracoes."
@@ -232,9 +247,12 @@ printf 'Termo de uso aceito\nlogin: %s\ndata: %s\ncomputador: %s\nversao do app:
 rm -rf "$TMP"
 if [ ${#AVISOS[@]} -eq 0 ]; then ok "tudo certo, nenhuma pendencia."; else for a in "${AVISOS[@]}"; do echo "       - $a"; done; fi
 echo ""
+echo "  Para tirar o V9 Flow deste Mac: bash \"$DESTINO/desinstalar_mac.sh\""
 echo "  Para usar: abra \"$NOME\" pelo Launchpad ou Spotlight (Cmd+Espaco, digite V9 Flow)."
 echo "  Na primeira vez, clique em \"Instalar\" (o navegador proprio do V9 Flow, ~200 MB) e entre na sua conta Google."
 echo "  O programa se atualiza sozinho cada vez que voce abre."
 echo ""
-R="$(pergunta '  Abrir o programa agora? (S/N): ')"
-if [ "$R" = "s" ] || [ "$R" = "S" ]; then open "$APP"; fi
+if [ -z "$ENCAD" ]; then       # encadeado: quem decide abrir e' o instalador do Vision
+  R="$(pergunta '  Abrir o programa agora? (S/N): ')"
+  if [ "$R" = "s" ] || [ "$R" = "S" ]; then open "$APP"; fi
+fi
