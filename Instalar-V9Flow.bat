@@ -195,14 +195,36 @@ New-Item -ItemType Directory -Path $Tmp -Force | Out-Null
 $Cofre = Join-Path $Tmp 'v9flow_cofre.py'
 [IO.File]::WriteAllBytes($Cofre, [Convert]::FromBase64String($CofrePyB64))
 $VPy = Join-Path $Tmp 'venv\Scripts\python.exe'
-if (-not (Test-Path $VPy)) {
-    Write-Host '      Preparando a verificacao de acesso (so na primeira vez)...'
-    & python -m venv (Join-Path $Tmp 'venv')
+# 29/10 (aluno: "Nao consegui preparar a verificacao de acesso" mesmo com internet): a pasta temporaria de uma tentativa
+# anterior ficava apontando para um Python que foi trocado ou removido, e era reaproveitada para sempre. Agora: se o
+# cryptography nao importar, a pasta e' recriada com o Python de agora e o pip tenta de novo; se ainda falhar, a tela
+# mostra o erro de verdade do pip (e nao so' "confira a internet").
+function PrepararVerificacao {
+    if (-not (Test-Path $VPy)) {
+        Write-Host '      Preparando a verificacao de acesso (so na primeira vez)...'
+        & python -m venv (Join-Path $Tmp 'venv') 2>&1 | Out-Null
+    }
+    if (-not (Test-Path $VPy)) { return 'o Python nao conseguiu criar a pasta de verificacao' }
+    & $VPy -c 'import cryptography' 2>$null
+    if ($LASTEXITCODE -eq 0) { return '' }
+    $saida = (& $VPy -m pip install -q --disable-pip-version-check cryptography 2>&1 | Out-String)
+    & $VPy -c 'import cryptography' 2>$null
+    if ($LASTEXITCODE -eq 0) { return '' }
+    $linhas = @($saida -split "`r?`n" | Where-Object { $_.Trim() })
+    if ($linhas.Count) { return ($linhas | Select-Object -Last 3) -join ' | ' }
+    return 'o pip nao instalou o cryptography'
 }
-& $VPy -c 'import cryptography' 2>$null
-if ($LASTEXITCODE -ne 0) { & $VPy -m pip install -q --disable-pip-version-check cryptography 2>&1 | Out-Null }
-& $VPy -c 'import cryptography' 2>$null
-if ($LASTEXITCODE -ne 0) { Parar 'Nao consegui preparar a verificacao de acesso. Confira a internet e rode de novo.' }
+$ErroVerif = PrepararVerificacao
+if ($ErroVerif) {
+    Write-Host '      A pasta de verificacao estava com problema; recriando com o Python de agora...'
+    Remove-Item -Recurse -Force (Join-Path $Tmp 'venv') -ErrorAction SilentlyContinue
+    $ErroVerif = PrepararVerificacao
+}
+if ($ErroVerif) {
+    Write-Host "      Detalhe: $ErroVerif"
+    Parar ('Nao consegui preparar a verificacao de acesso (' + $ErroVerif + '). Confira a internet ou se o antivirus ' +
+           'bloqueou o Python, e rode de novo.')
+}
 
 $Membros = Join-Path $Tmp 'membros.json'
 function BaixarMembros {
