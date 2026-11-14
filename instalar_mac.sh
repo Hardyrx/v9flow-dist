@@ -116,6 +116,27 @@ SENHA=""; unset V9F_E_senha
 [ -n "$CHAVE" ] || parar "Login ou senha incorretos 3 vezes. Fale com o administrador."
 [ "$MODO" = "login" ] && ok "acesso liberado para $LOGIN."
 
+# ---------- o V9 Flow nao pode estar aberto enquanto os arquivos sao trocados ----------
+# 13/11 (auditoria): como no Windows (FlowAberto). Com o inicio automatico o servidor fica rodando e o instalador
+# trocava os arquivos por baixo dele. A trava v9flow.lock e' do sistema (morreu o processo, solta): 0 = aberto.
+flow_aberto() {
+  [ -f "$DADOS/v9flow.lock" ] || return 1
+  "$VPY" -c 'import fcntl,sys
+f = open(sys.argv[1], "a+b")
+try: fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except OSError: sys.exit(0)
+sys.exit(1)' "$DADOS/v9flow.lock" >/dev/null 2>&1
+}
+if flow_aberto; then
+  [ -n "$ENCAD" ] && parar "O V9 Flow esta aberto. Feche ele (\"Sair do V9 Flow\") e rode o instalador de novo."
+  for i in 1 2 3; do
+    flow_aberto || break
+    echo ""; echo "      O V9 Flow esta aberto. Feche ele de vez: na tela do V9 Flow, clique em \"Sair do V9 Flow\"."
+    pergunta '      Depois aperte Enter aqui: ' >/dev/null
+  done
+  flow_aberto && parar "O V9 Flow continua aberto. Feche ele (\"Sair do V9 Flow\") e rode o comando de novo."
+fi
+
 # ---------- 3) programa ----------
 azul 3 "Baixando o programa para $DESTINO"
 curl -fsSL "$DIST_URL/latest.json" -o "$TMP/latest.json" || parar "Nao consegui ver a versao atual. Confira a internet."
@@ -133,7 +154,7 @@ else
   [ "$(shasum -a 256 "$TMP/$ARQ" | cut -d' ' -f1)" = "$SHA" ] || parar "O arquivo baixado esta corrompido. Rode de novo."
   mkdir -p "$DESTINO"
   printf '%s\n' "$CHAVE" | "$VPY" "$TMP/v9flow_cofre.py" decifrar --pacote "$TMP/$ARQ" --destino "$DESTINO" >/dev/null
-  case $? in 0) ;; 4) parar "O seu acesso foi removido ou a chave foi trocada. Fale com o administrador." ;; *) parar "Nao consegui abrir o pacote do programa." ;; esac
+  case $? in 0) ;; 4) parar "O seu acesso foi removido ou a chave foi trocada. Fale com o administrador." ;; 5) parar "Nao consegui gravar o programa em $DESTINO (falta espaco no disco?). Libere espaco e rode de novo." ;; *) parar "Nao consegui abrir o pacote do programa." ;; esac
   printf '%s\n' "$VERSAO" > "$DESTINO/VERSAO"
   ok "programa instalado (versao $VERSAO)."
 fi
@@ -142,6 +163,10 @@ printf '%s\n' "$LOGIN" > "$DESTINO/instalado_para.txt"          # liga a atualiz
 
 # ---------- 4) ambiente e bibliotecas ----------
 azul 4 "Ambiente proprio do V9 Flow e bibliotecas"
+# 13/11 (auditoria): venv que aponta para um Python que sumiu (cache do uv limpo) era reaproveitado para sempre: recria
+if [ -x "$DESTINO/venv/bin/python" ] && ! "$DESTINO/venv/bin/python" -c 'import sys' >/dev/null 2>&1; then
+  echo "      O ambiente do programa apontava para um Python que nao existe mais; recriando..."; rm -rf "$DESTINO/venv"
+fi
 [ -x "$DESTINO/venv/bin/python" ] || uv venv --python 3.12 --seed "$DESTINO/venv" >/dev/null 2>&1 || parar "Nao consegui criar o ambiente do programa."
 AppPy="$DESTINO/venv/bin/python"
 ( cd "$DESTINO" && "$AppPy" abrir.pyw --preparar ) || parar "Nao consegui instalar as bibliotecas. Confira a internet e rode de novo."

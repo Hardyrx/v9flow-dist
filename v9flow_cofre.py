@@ -24,11 +24,12 @@ Comandos:
                                               Flow (o administrador entra sempre; "=" mantem quem ja esta).
   publicar  --app PASTA --dist PASTA --membros ARQ [--versao V]
                                               stdin: login, senha do administrador. --membros = a lista do FLOW.
+  metodo-enviar --arquivo ARQ                 manda para a nuvem o metodo que o publicar deixou em --metodo-saida
   listar    --app PASTA                       mostra o que entraria no pacote (nao precisa de login)
 Codigos de saida: 0 ok, 2 login ou senha incorretos, 3 arquivo ausente ou invalido, 4 pacote nao abre,
-                  6 versao igual a ja publicada.
+                  5 nao conseguiu gravar o app no destino (disco/antivirus), 6 versao igual a ja publicada.
 """
-import argparse, base64, ctypes, fnmatch, gzip, hashlib, io, json, os, re, sys, time, zipfile
+import argparse, base64, ctypes, fnmatch, gzip, hashlib, io, json, os, re, sys, tempfile, time, zipfile
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes
@@ -283,10 +284,19 @@ def cmd_decifrar(a):
         print(f"ERRO: nao consegui ler o pacote ({e})", file=sys.stderr)
         return 3
     try:
-        n = extrai_zip(abre(chave, blob), a.destino)
+        dados = abre(chave, blob)
     except Exception as e:
         print(f"ERRO: {e}", file=sys.stderr)
         return 4
+    # 13/11 (auditoria): disco cheio ou antivirus na extracao saia com 4 e o instalador dizia "acesso removido"
+    try:
+        n = extrai_zip(dados, a.destino)
+    except OSError as e:
+        print(f"ERRO: nao consegui gravar em {a.destino} ({e})", file=sys.stderr)
+        return 5
+    except Exception as e:
+        print(f"ERRO: {e}", file=sys.stderr)
+        return 3
     print(f"{n} arquivo(s) extraido(s) em {a.destino}")
     return 0
 
@@ -338,12 +348,21 @@ def cmd_compradores(a):
             k_flow = None
     itens = lista_compradores(oracle, flow, k_oracle)
     eu = id_login(login)
+    # 13/11 (auditoria): quem o painel liberou no Flow e falta no Oracle deste PC (Oracle desatualizado) saia calado
+    so_no_flow = set(((flow or {}).get("membros") or {}).keys()) - set((oracle.get("membros") or {}).keys())
+    aviso = (f"{len(so_no_flow)} pessoa(s) da lista do V9 Flow nao estao no membros.json do Oracle deste PC (Oracle "
+             "desatualizado?). Atualize o Oracle (git pull) ou tire a pessoa do Flow pelo painel")
 
     if a.escolha is None:
         for n, (ident, nome, ja) in enumerate(itens, 1):
             print(f"{n:>3}. [{'x' if ja else ' '}] {nome}{'  (voce)' if ident == eu else ''}"
                   f"{'  (PROIBIDO no Flow)' if ident != eu and proibido(ident, nome) else ''}")
+        if so_no_flow:
+            print(f"AVISO: {aviso}.")
         return 0
+    if so_no_flow:
+        print(f"ERRO: {aviso}, e rode de novo. Nada foi gravado.", file=sys.stderr)
+        return 3
 
     if a.escolha.strip().lower() == "todos":        # todo membro do Oracle (o padrao continua: so' quem comprou)
         idents = {i for i, _, _ in itens}
@@ -353,16 +372,28 @@ def cmd_compradores(a):
             return 3
         idents = {i for i, _, ja in itens if ja}
     else:
-        try:
-            nums = [int(x) for x in re.split(r"[,;\s]+", a.escolha.strip()) if x]
-        except ValueError:
-            print("ERRO: digite so' os numeros, separados por virgula (ex.: 1,3,5).", file=sys.stderr)
+        # 13/11 (auditoria): o numero depende da ordem da lista (membro novo desloca todo mundo). Pela nuvem a escolha e'
+        # digitada sem ver a lista: --sem-numeros recusa numero, e o nome (como aparece na lista) vale sempre.
+        partes = [p.strip() for p in re.split(r"[,;]", a.escolha) if p.strip()]
+        nums = [int(x) for p in partes if re.fullmatch(r"[\d\s]+", p) for x in p.split()]
+        pedidos = [p for p in partes if not re.fullmatch(r"[\d\s]+", p)]
+        if nums and getattr(a, "sem_numeros", False):
+            print("ERRO: pela nuvem use os nomes (como aparecem na lista), vazio ou todos: o numero muda quando entra "
+                  "membro novo. Nada foi gravado.", file=sys.stderr)
             return 3
         fora = [n for n in nums if not 1 <= n <= len(itens)]
         if fora:
             print(f"ERRO: numero fora da lista: {', '.join(map(str, fora))}.", file=sys.stderr)
             return 3
         idents = {itens[n - 1][0] for n in nums}
+        igual = lambda s: " ".join(s.split()).casefold()
+        for p in pedidos:
+            achados = [i for i, n, _ in itens if igual(n) == igual(p)]
+            if len(achados) != 1:
+                print(f"ERRO: {'nenhum' if not achados else 'mais de um'} membro com o nome \"{p}\". Nada foi gravado.",
+                      file=sys.stderr)
+                return 3
+            idents.add(achados[0])
     idents.add(eu)                  # o administrador fica sempre: e' o login dele que abre a chave para publicar
     nomes = {i: n for i, n, _ in itens}
     barrados = {i for i in idents if i != eu and proibido(i, nomes.get(i, ""))}
@@ -427,21 +458,32 @@ def cmd_publicar(a):
         return 3
     # METODO NA NUVEM (2026-10-13): os prompts do agente e do estudio e as referencias CENA/GENIU$ vao para o Supabase
     # (instalador/conteudo_nuvem.py) e saem do pacote dos membros. Se a nuvem falhar, nada e' publicado.
+    # 13/11 (auditoria): o envio a' nuvem saiu daqui (subia antes do push; push falho = membros com metodo novo e app
+    # velho). Aqui so' monta e confere; o pacote do metodo fica em --metodo-saida (fora do dist) e o publicar.ps1 chama
+    # o "metodo-enviar" depois que o GitHub ficou igual.
     if getattr(a, "metodo_nuvem", False):
+        saida = getattr(a, "metodo_saida", None) or os.path.join(tempfile.gettempdir(), "v9flow_metodo.json")
         try:
             sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
             import conteudo_nuvem as CN
             pacote = CN.montar(a.app)
             zip_bytes, k = CN.tirar_do_zip(zip_bytes, pacote)
-            ok, msg = CN.publicar(pacote)
+            # 13/11 (revisao): a nuvem e' conferida AQUI, antes de gravar o pacote sem o metodo: token ausente ou
+            # trocado, internet ou Supabase fora param tudo (7, nada publicado), como antes. So' sobra a janela do push.
+            P = CN._vision(); P.token_admin()
+            st, j = P._post({"acao": "estado", "app": "flow"})
+            if st != 200:
+                print(f"ERRO: a nuvem do metodo nao aceitou ({st}): {(j or {}).get('motivo')}. Nada foi publicado.",
+                      file=sys.stderr)
+                return 7
+            os.makedirs(os.path.dirname(os.path.abspath(saida)), exist_ok=True)
+            with open(saida, "w", encoding="utf-8") as f:
+                json.dump(pacote, f, ensure_ascii=False)
         except (Exception, SystemExit) as e:
-            print(f"ERRO: nao consegui tirar o metodo do pacote ({e}). Nada foi publicado.", file=sys.stderr)
+            print(f"ERRO: nao consegui tirar o metodo do pacote ou conferir a nuvem ({e}). Nada foi publicado.",
+                  file=sys.stderr)
             return 7
-        if not ok:
-            print(msg + " Nada foi publicado.", file=sys.stderr)
-            return 7
-        print(msg)
-        print(f"Metodo fora do pacote: {k} prompt(s) e arquivo(s) so' na nuvem.")
+        print(f"Metodo fora do pacote: {k} prompt(s) e arquivo(s) so' na nuvem (sobe depois do envio).")
     blob = fecha(chave, zip_bytes)
     os.makedirs(a.dist, exist_ok=True)
     with open(os.path.join(a.dist, ARQUIVO_PACOTE), "wb") as f:
@@ -459,6 +501,26 @@ def cmd_publicar(a):
             d.write(dados)
     print(f"Pacote {versao}: {n} arquivo(s), {len(blob) / 1024:.0f} KB cifrado -> {a.dist}")
     return 0
+
+
+def cmd_metodo_enviar(a):
+    """13/11 (auditoria): manda para a nuvem o metodo que o publicar deixou em --metodo-saida, so' depois do envio ao
+    GitHub. O arquivo (metodo em claro) e' apagado sempre."""
+    try:
+        with open(a.arquivo, encoding="utf-8") as f:
+            pacote = json.load(f)
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import conteudo_nuvem as CN
+        ok, msg = CN.publicar(pacote)
+    except (Exception, SystemExit) as e:
+        ok, msg = False, f"ERRO: nao consegui mandar o metodo para a nuvem ({e})."
+    finally:
+        try:
+            os.remove(a.arquivo)
+        except OSError:
+            pass
+    print(msg, file=sys.stdout if ok else sys.stderr)
+    return 0 if ok else 7
 
 
 # ---------------------------------------------------------------- instalar do zero POR CODIGO (16/10, sem login/senha)
@@ -562,11 +624,14 @@ def main():
     p = sub.add_parser("listar"); p.add_argument("--app", required=True); p.set_defaults(f=cmd_listar)
     p = sub.add_parser("compradores"); p.add_argument("--oracle", required=True); p.add_argument("--flow", required=True)
     p.add_argument("--escolha"); p.add_argument("--trocar-chave", action="store_true", dest="trocar_chave")
+    p.add_argument("--sem-numeros", action="store_true", dest="sem_numeros")
     p.set_defaults(f=cmd_compradores)
     p = sub.add_parser("publicar"); p.add_argument("--app", required=True); p.add_argument("--dist", required=True)
     p.add_argument("--membros", required=True); p.add_argument("--versao")
     p.add_argument("--metodo-nuvem", action="store_true", dest="metodo_nuvem")
+    p.add_argument("--metodo-saida", dest="metodo_saida")
     p.set_defaults(f=cmd_publicar)
+    p = sub.add_parser("metodo-enviar"); p.add_argument("--arquivo", required=True); p.set_defaults(f=cmd_metodo_enviar)
     a = ap.parse_args()
     return a.f(a)
 
