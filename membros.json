@@ -3,13 +3,6 @@
  "kdf": "PBKDF2-SHA256",
  "iter": 600000,
  "membros": {
-  "6e1a3a3d00174beeafedb8dd2ea9f4b116fcca9b939291062f02a98574ed999f": {
-   "salt": "ZZXFrNbgkatcgN0n3GifZg==",
-   "pub": "NTNkkBCg7axsEzWs17G3apnrpFTWLQHpI5pSGl5tQGA=",
-   "priv": "4NvY07NlilSw0vBKo+51tZ3BInTsMqx5vGfSaVcKqf8LFDv5pZwQWWBdwmJUmcoo6KyHyTKA3sEsb16b",
-   "k": "K8/8vp7mxFhdCj77HJ5NpMerpaiXUhvl73OSVTs8GVzbqO2WcfEaAD9ZAbwCMbmj+Rt3RTBZILZFdEuqQdkbAtH71KrXPPFXVrC99j4F2QcM3gmIavWuuW7NLqM=",
-   "label": "ZxRQAcNfH+wLMdneLPrzUGS0Fdt75g9NAWO/XqZotINsB4j8E5UlbD20km4j0+/5hnCrjA=="
-  },
   "8f1624138a2ee1f0646211736763b0912ae4846d2ad174dbd795b613420706dd": {
    "salt": "VkDL4WVh+soPZXDRajC9Bw==",
    "pub": "TcEqmK+YV+N1m6O62b0L4Uc3lEy81nPc3/FU7pgVJiw=",
