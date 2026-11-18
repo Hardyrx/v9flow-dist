@@ -14,6 +14,7 @@ DESTINO="${V9F_DESTINO:-$HOME/V9Flow}"
 DADOS="$HOME/Library/Application Support/V9Flow"
 APP="$HOME/Applications/V9 Flow.app"
 NOME="V9 Flow"
+NOME_VISIVEL="V9 Ultra Flow"
 TMP="$(mktemp -d -t v9flowinst)"
 AVISOS=()
 # ENCADEADO (21/10): o instalador do V9 Vision (Mac) roda este aqui mesmo, como o .bat do Windows (V9F_ENCADEADO + V9F_E_*):
@@ -210,6 +211,11 @@ icone_no_app() {
   /usr/libexec/PlistBuddy -c "Delete :CFBundleIconName" "$a/Contents/Info.plist" >/dev/null 2>&1 || true
   /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile applet" "$a/Contents/Info.plist" >/dev/null 2>&1 \
     || /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string applet" "$a/Contents/Info.plist" >/dev/null 2>&1 || true
+  # 18/11: nome visivel "V9 Ultra Flow" (o arquivo continua "V9 Flow.app": o app e o desinstalador o acham por esse caminho)
+  /usr/libexec/PlistBuddy -c "Set :CFBundleName \"$NOME_VISIVEL\"" "$a/Contents/Info.plist" >/dev/null 2>&1 \
+    || /usr/libexec/PlistBuddy -c "Add :CFBundleName string \"$NOME_VISIVEL\"" "$a/Contents/Info.plist" >/dev/null 2>&1 || true
+  /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName \"$NOME_VISIVEL\"" "$a/Contents/Info.plist" >/dev/null 2>&1 \
+    || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string \"$NOME_VISIVEL\"" "$a/Contents/Info.plist" >/dev/null 2>&1 || true
   codesign --force --sign - "$a" >/dev/null 2>&1 && codesign --verify "$a" >/dev/null 2>&1 || aviso "O app $(basename "$a") pode nao abrir: a assinatura falhou. Rode este instalador de novo."
   touch "$a"
   /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$a" >/dev/null 2>&1 || true

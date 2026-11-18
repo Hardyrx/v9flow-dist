@@ -1,12 +1,12 @@
 <# :
 @echo off
 REM ===========================================================================
-REM Instalador do V9 Flow (Windows 10/11). Dois cliques e seguir a tela.
+REM Instalador do V9 Ultra Flow (Windows 10/11). Dois cliques e seguir a tela.
 REM A parte de cima e' so' a casca: o instalador de verdade e' o PowerShell
 REM que vem abaixo, neste mesmo arquivo. Rodar de novo = atualizar/consertar.
 REM ===========================================================================
 setlocal
-title Instalador do V9 Flow
+title Instalador do V9 Ultra Flow
 set "INSTALADOR=%~f0"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-Expression ([IO.File]::ReadAllText($env:INSTALADOR))"
 echo.
@@ -27,7 +27,7 @@ $CofrePyB64 = 'IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMw0KIiIiDQpWOSBGTE9XIC8vIGNvZnJlIGRvI
 $ErrorActionPreference = 'Continue'
 $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$Nome = 'V9 Flow'
+$Nome = 'V9 Ultra Flow'
 $Avisos = New-Object System.Collections.ArrayList
 
 # --- modo de teste (so' para quem desenvolve): troca origem e destino e dispensa as perguntas
@@ -37,7 +37,7 @@ if (-not $BaseUrl) { $BaseUrl = "https://raw.githubusercontent.com/$Dist/main" }
 # --- modo encadeado (2026-10-13): o instalador do V9 Vision baixa este arquivo e roda logo depois de instalar o V9
 # Vision. O login, a senha, o aceite do termo e a unidade vem de la (V9F_E_*), para nao perguntar tudo de novo.
 $Encadeado = ($env:V9F_ENCADEADO -eq '1')
-# pasta de dados do V9 Flow (config, fila, perfil do navegador, chave): a mesma que o app usa
+# pasta de dados do V9 Ultra Flow (config, fila, perfil do navegador, chave): a mesma que o app usa
 $Dados = Join-Path $env:LOCALAPPDATA 'V9Flow'
 if ($Teste -and $env:V9FLOW_DADOS) { $Dados = $env:V9FLOW_DADOS }
 
@@ -101,7 +101,7 @@ function LerSegredo($texto, $id = '') {
     try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b) }
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) }
 }
-# o V9 Flow aberto segura a trava v9flow.lock na pasta de dados: se nao da' para abrir o arquivo com exclusividade, esta aberto
+# o V9 Ultra Flow aberto segura a trava v9flow.lock na pasta de dados: se nao da' para abrir o arquivo com exclusividade, esta aberto
 function FlowAberto {
     $trava = Join-Path $Dados 'v9flow.lock'
     if (-not (Test-Path $trava)) { return $false }
@@ -133,7 +133,7 @@ function EscolherDestino {
     }
     $un = @(UnidadesFixas)
     Write-Host ''
-    Write-Host '  Onde instalar o V9 Flow?'
+    Write-Host '  Onde instalar o V9 Ultra Flow?'
     Write-Host '  O programa ocupa cerca de 300 MB (com o navegador proprio, que ele baixa na primeira vez).'
     foreach ($u in $un) { Write-Host ('      {0}:   {1} GB livres' -f $u.Letra, $u.LivreGB) }
     for (;;) {
@@ -160,14 +160,14 @@ function EscolherDestino {
 $Destino = EscolherDestino
 Write-Host "      Destino: $Destino"
 
-# ---------- o V9 Flow nao pode estar aberto enquanto os arquivos sao trocados ----------
+# ---------- o V9 Ultra Flow nao pode estar aberto enquanto os arquivos sao trocados ----------
 for ($i = 0; (FlowAberto) -and $i -lt 3; $i++) {
-    if ($Teste) { Parar 'Modo de teste: o V9 Flow de teste esta aberto.' }
+    if ($Teste) { Parar 'Modo de teste: o V9 Ultra Flow de teste esta aberto.' }
     Write-Host ''
-    Write-Host '      O V9 Flow esta aberto. Feche ele de vez: na tela do V9 Flow, clique em "Sair do V9 Flow".' -ForegroundColor Yellow
+    Write-Host '      O V9 Ultra Flow esta aberto. Feche ele de vez: na tela do V9 Ultra Flow, clique em "Sair do V9 Ultra Flow".' -ForegroundColor Yellow
     Read-Host '      Depois aperte Enter aqui' | Out-Null
 }
-if (FlowAberto) { Parar 'O V9 Flow continua aberto. Feche ele ("Sair do V9 Flow") e rode o instalador de novo.' }
+if (FlowAberto) { Parar 'O V9 Ultra Flow continua aberto. Feche ele ("Sair do V9 Ultra Flow") e rode o instalador de novo.' }
 
 # ---------- 1) Python ----------
 Passo 1 'Python'
@@ -263,7 +263,7 @@ while ($TentarCodigo) {
         Ok "este computador esta liberado (codigo $Codigo)."
         break
     }
-    if ($r.estado -eq 'negado') { Parar "Este computador (codigo $Codigo) nao tem acesso ao V9 Flow. Fale com o administrador." }
+    if ($r.estado -eq 'negado') { Parar "Este computador (codigo $Codigo) nao tem acesso ao V9 Ultra Flow. Fale com o administrador." }
     if ($r.estado -eq 'sem_chave') { Parar "Este computador (codigo $Codigo) esta liberado, mas sem direito a instalar. Fale com o administrador." }
     if ($r.estado -eq 'sem_rede') {
         Write-Host '      Nao consegui falar com o servidor de licencas. Confira a internet.' -ForegroundColor Yellow
@@ -271,7 +271,7 @@ while ($TentarCodigo) {
     }
     if ($r.estado -ne 'aguardando') { break }      # funcao antiga: segue com login e senha, como antes
     if ($Encadeado) {
-        Write-Host "      Este computador (codigo $Codigo) ainda nao foi liberado para o V9 Flow. Mande o codigo para o suporte e rode o instalador de novo."
+        Write-Host "      Este computador (codigo $Codigo) ainda nao foi liberado para o V9 Ultra Flow. Mande o codigo para o suporte e rode o instalador de novo."
         exit 3
     }
     if (-not $Avisou) {
@@ -347,7 +347,7 @@ New-Item -ItemType Directory -Path $Dados -Force -ErrorAction SilentlyContinue |
 [IO.File]::WriteAllText((Join-Path $Destino 'instalado_para.txt'), "$Login`r`n")    # marca de instalacao: liga a atualizacao automatica
 
 # ---------- 4) ambiente e bibliotecas ----------
-Passo 4 'Ambiente proprio do V9 Flow e bibliotecas'
+Passo 4 'Ambiente proprio do V9 Ultra Flow e bibliotecas'
 # 13/11 (auditoria): o venv do programa que aponta para um Python trocado ou removido era reaproveitado para sempre (o
 # mesmo caso da pasta de verificacao em 29/10). Se ele nao roda, e' apagado e criado de novo com o Python de agora.
 if (Test-Path (Join-Path $Destino 'venv\Scripts\python.exe')) {
@@ -375,7 +375,7 @@ else {
     Pop-Location
     if ($codLic -eq 0) { Ok 'licenca ativada neste computador.' }
     else { Alerta ("A licenca nao foi ativada agora: $(($rLic | Select-Object -Last 1)) " +
-                   "Ao abrir o V9 Flow, entre com o seu login e senha na tela de entrada.") }
+                   "Ao abrir o V9 Ultra Flow, entre com o seu login e senha na tela de entrada.") }
 }
 $SenhaLicenca = $null
 
@@ -386,9 +386,37 @@ $atalhoInicio = Join-Path ([Environment]::GetFolderPath('Startup')) "$Nome.lnk"
 $pyw = Join-Path $Destino 'venv\Scripts\pythonw.exe'
 $abrir = Join-Path $Destino 'abrir.pyw'
 $icone = Join-Path $Destino 'v9flow\ui\icone.ico'
+# 18/11: o atalho aponta para uma COPIA com o hash no nome (icones\icone-<hash8>.ico): o Windows guarda o desenho pelo
+# caminho, entao um icone novo precisa de caminho novo (o app faz o mesmo ao abrir, depois de cada atualizacao).
+try {
+    if (Test-Path $icone) {
+        $h8 = (Get-FileHash -LiteralPath $icone -Algorithm SHA256).Hash.Substring(0, 8).ToLower()
+        $pastaIc = Join-Path $Destino 'icones'
+        New-Item -ItemType Directory -Path $pastaIc -Force | Out-Null
+        $icHash = Join-Path $pastaIc "icone-$h8.ico"
+        Copy-Item -LiteralPath $icone -Destination $icHash -Force
+        $icone = $icHash
+    }
+} catch { }
 if ($Teste) { Ok 'modo de teste: atalhos pulados.' }
 else {
     $shell = New-Object -ComObject WScript.Shell
+    # 18/11: os atalhos com o nome antigo ("V9 Flow") DESTE programa saem -- nunca o de outro programa (confere o alvo)
+    $dest = [IO.Path]::GetFullPath($Destino).TrimEnd('\') + '\'
+    $velhos = @((Join-Path ([Environment]::GetFolderPath('Desktop')) 'V9 Flow.lnk'),
+                (Join-Path ([Environment]::GetFolderPath('Startup')) 'V9 Flow.lnk'),
+                (Join-Path ([Environment]::GetFolderPath('Programs')) 'V9 Flow\V9 Flow.lnk'),
+                (Join-Path ([Environment]::GetFolderPath('Programs')) 'V9 Flow\Desinstalar V9 Flow.lnk'))
+    foreach ($v in $velhos) {
+        try {
+            if (Test-Path -LiteralPath $v) {
+                $x = $shell.CreateShortcut($v)
+                if (([string]$x.TargetPath).StartsWith($dest, [StringComparison]::OrdinalIgnoreCase)) { Remove-Item -LiteralPath $v -Force }
+            }
+        } catch { }
+    }
+    $menuVelho = Join-Path ([Environment]::GetFolderPath('Programs')) 'V9 Flow'
+    if ((Test-Path -LiteralPath $menuVelho) -and -not (Get-ChildItem -LiteralPath $menuVelho -Force)) { Remove-Item -LiteralPath $menuVelho -Force }
     function Atalho($caminho, $alvo, $argumentos) {
         $a = $shell.CreateShortcut($caminho)
         $a.TargetPath = $alvo
@@ -407,7 +435,7 @@ else {
 
 # ---------- 6) iniciar com o Windows ----------
 Passo 6 'Iniciar com o Windows'
-$resp = Perguntar '      Abrir o V9 Flow sozinho (em segundo plano) quando ligar o computador? (S/N, Enter = N)' 'N' 'iniciar'
+$resp = Perguntar '      Abrir o V9 Ultra Flow sozinho (em segundo plano) quando ligar o computador? (S/N, Enter = N)' 'N' 'iniciar'
 if ($Teste) { Ok 'modo de teste: inicio automatico pulado.' }
 elseif ($resp -match '^[sS]') {
     $shell = New-Object -ComObject WScript.Shell
@@ -448,7 +476,7 @@ if ($Avisos.Count -eq 0) {
 }
 Write-Host ''
 Write-Host "  Para usar: dois cliques no atalho `"$Nome`" na Area de Trabalho."
-Write-Host '  Na primeira vez, clique em "Instalar" (o navegador proprio do V9 Flow, ~200 MB) e entre na sua conta Google.'
+Write-Host '  Na primeira vez, clique em "Instalar" (o navegador proprio do V9 Ultra Flow, ~200 MB) e entre na sua conta Google.'
 Write-Host '  O programa se atualiza sozinho cada vez que voce abre.'
 Write-Host ''
 if ($Encadeado) { exit 0 }                     # o instalador do V9 Vision continua dali
