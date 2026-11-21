@@ -1,8 +1,8 @@
 {
- "versao": "1.1.144",
+ "versao": "1.1.145",
  "arquivo": "app.v9pkg",
- "sha256": "ec2b767fe2a49277cf6cc85fc2e3fbbb884b9bd75d81f123789759811253fc4b",
- "tamanho": 48502293,
- "publicado_em": "2026-11-21 07:40:46",
+ "sha256": "d746c1546a72324cd08c2ad5bc89c7bf31f245770e83f997609f6220cf9d3cc9",
+ "tamanho": 48506824,
+ "publicado_em": "2026-11-21 12:37:25",
  "chave_id": "c3435b477b86"
 }
